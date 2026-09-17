@@ -4,6 +4,7 @@ import { body, param, query, validationResult } from "express-validator";
 import bcrypt from "bcryptjs";
 import mongoose from "mongoose";
 import User from "../models/user.js";
+import { generateToken, isAuth, isAdmin } from "../utils.js";
 
 const userRouter = express.Router();
 
@@ -82,7 +83,35 @@ const profileValidators = [
 ];
 
 // ---------------------------------------------------------------------------
-// POST /api/users — Crear usuario
+// POST /api/users/login — Autenticación (público)
+// ---------------------------------------------------------------------------
+userRouter.post(
+    "/login",
+    [
+        body("email").trim().isEmail().withMessage("Email inválido").normalizeEmail(),
+        body("password").notEmpty().withMessage("La contraseña es obligatoria"),
+        validate,
+    ],
+    asyncHandler(async (req, res) => {
+        const { email, password } = req.body;
+
+        const user = await User.findOne({ email, isActive: true });
+
+        // Mensaje genérico para no revelar si el email existe (anti-enumeración)
+        if (!user || !(await bcrypt.compare(password, user.password))) {
+            return res.status(401).json({ message: "Credenciales inválidas" });
+        }
+
+        const { password: _, ...userResponse } = user.toObject();
+        res.json({
+            ...userResponse,
+            token: generateToken(user),
+        });
+    })
+);
+
+// ---------------------------------------------------------------------------
+// POST /api/users — Crear usuario (registro público)
 // ---------------------------------------------------------------------------
 userRouter.post(
     "/",
@@ -115,6 +144,8 @@ userRouter.post(
 // ---------------------------------------------------------------------------
 userRouter.get(
     "/",
+    isAuth,
+    isAdmin,
     [
         query("page").optional().isInt({ min: 1 }).toInt(),
         query("limit").optional().isInt({ min: 1, max: MAX_LIMIT }).toInt(),
@@ -180,8 +211,14 @@ userRouter.get(
 // ---------------------------------------------------------------------------
 userRouter.get(
     "/:id",
+    isAuth,
     validateObjectId,
     asyncHandler(async (req, res) => {
+        // Un usuario solo puede ver su propio perfil, salvo que sea admin
+        if (req.user._id !== req.params.id && !req.user.isAdmin) {
+            return res.status(403).json({ message: "No tienes permiso para ver este perfil" });
+        }
+
         const user = await User.findOne({ _id: req.params.id, isActive: true })
             .select(PUBLIC_FIELDS)
             .lean();
@@ -198,6 +235,7 @@ userRouter.get(
 // ---------------------------------------------------------------------------
 userRouter.put(
     "/:id",
+    isAuth,
     [
         ...validateObjectId,
         body("email").optional().trim().isEmail().withMessage("Email inválido").normalizeEmail(),
@@ -216,12 +254,19 @@ userRouter.put(
         validate,
     ],
     asyncHandler(async (req, res) => {
+        const isSelf = req.user._id === req.params.id;
+
+        // Solo el propio usuario o un admin pueden actualizar
+        if (!isSelf && !req.user.isAdmin) {
+            return res.status(403).json({ message: "No tienes permiso para modificar este usuario" });
+        }
+
         const user = await User.findOne({ _id: req.params.id, isActive: true });
         if (!user) {
             return res.status(404).json({ message: "Usuario no encontrado" });
         }
 
-        const { email, password, userProfile, isAdmin } = req.body;
+        const { email, password, userProfile, isAdmin: isAdminBody } = req.body;
 
         // Verificar unicidad del email si se está cambiando
         if (email && email !== user.email) {
@@ -245,9 +290,9 @@ userRouter.put(
             }
         }
 
-        // Solo permitir cambiar isAdmin si el usuario no está protegido
-        if (isAdmin !== undefined && !user.isProtected) {
-            user.isAdmin = Boolean(isAdmin);
+        // Solo un admin puede cambiar isAdmin, y solo si el usuario no está protegido
+        if (isAdminBody !== undefined && req.user.isAdmin && !user.isProtected) {
+            user.isAdmin = Boolean(isAdminBody);
         }
 
         await user.save();
@@ -262,6 +307,8 @@ userRouter.put(
 // ---------------------------------------------------------------------------
 userRouter.delete(
     "/:id",
+    isAuth,
+    isAdmin,
     validateObjectId,
     asyncHandler(async (req, res) => {
         const user = await User.findOne({ _id: req.params.id, isActive: true });
@@ -283,21 +330,23 @@ userRouter.delete(
 // ---------------------------------------------------------------------------
 // PATCH /api/users/:id/restore — Restaurar usuario eliminado
 // ---------------------------------------------------------------------------
-userRouter.patch(
-    "/:id/restore",
-    validateObjectId,
-    asyncHandler(async (req, res) => {
-        const user = await User.findOneAndUpdate(
-            { _id: req.params.id, isActive: false },
-            { isActive: true },
-            { new: true }
-        ).select(PUBLIC_FIELDS);
+userisAuth,
+    isAdmin,
+    Router.patch(
+        "/:id/restore",
+        validateObjectId,
+        asyncHandler(async (req, res) => {
+            const user = await User.findOneAndUpdate(
+                { _id: req.params.id, isActive: false },
+                { isActive: true },
+                { new: true }
+            ).select(PUBLIC_FIELDS);
 
-        if (!user) {
-            return res.status(404).json({ message: "Usuario no encontrado o ya está activo" });
-        }
-        res.json({ message: "Usuario restaurado correctamente", user });
-    })
-);
+            if (!user) {
+                return res.status(404).json({ message: "Usuario no encontrado o ya está activo" });
+            }
+            res.json({ message: "Usuario restaurado correctamente", user });
+        })
+    );
 
 export default userRouter;
