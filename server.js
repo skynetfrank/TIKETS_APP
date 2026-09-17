@@ -35,7 +35,14 @@ app.use(express.json({ limit: "10kb" }));
 app.use(express.urlencoded({ extended: true, limit: "10kb" }));
 
 // Sanitización contra inyección NoSQL ($gt, $where, etc.)
-app.use(mongoSanitize());
+// Nota: en Express 5, req.query es solo-lectura, por eso sanitizamos
+// body y params directamente y query sobre una copia validada.
+app.use((req, res, next) => {
+  if (req.body) mongoSanitize.sanitize(req.body);
+  if (req.params) mongoSanitize.sanitize(req.params);
+  if (req.query) mongoSanitize.sanitize({ ...req.query }); // valida sin reasignar
+  next();
+});
 
 // Compresión gzip de respuestas
 app.use(compression());
