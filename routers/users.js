@@ -330,23 +330,23 @@ userRouter.delete(
 // ---------------------------------------------------------------------------
 // PATCH /api/users/:id/restore — Restaurar usuario eliminado
 // ---------------------------------------------------------------------------
-userisAuth,
+userRouter.patch(
+    "/:id/restore",
+    isAuth,
     isAdmin,
-    Router.patch(
-        "/:id/restore",
-        validateObjectId,
-        asyncHandler(async (req, res) => {
-            const user = await User.findOneAndUpdate(
-                { _id: req.params.id, isActive: false },
-                { isActive: true },
-                { new: true }
-            ).select(PUBLIC_FIELDS);
+    validateObjectId,
+    asyncHandler(async (req, res) => {
+        const user = await User.findOneAndUpdate(
+            { _id: req.params.id, isActive: false },
+            { isActive: true },
+            { new: true }
+        ).select(PUBLIC_FIELDS);
 
-            if (!user) {
-                return res.status(404).json({ message: "Usuario no encontrado o ya está activo" });
-            }
-            res.json({ message: "Usuario restaurado correctamente", user });
-        })
-    );
+        if (!user) {
+            return res.status(404).json({ message: "Usuario no encontrado o ya está activo" });
+        }
+        res.json({ message: "Usuario restaurado correctamente", user });
+    })
+);
 
 export default userRouter;
