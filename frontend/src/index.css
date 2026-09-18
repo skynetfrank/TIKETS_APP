@@ -143,19 +143,6 @@ header {
 }
 
 
-/* Estilos del logo para modo claro */
-.header-logo {
-  mix-blend-mode: multiply;
-  border-radius: 5px;
-}
-
-/* Estilos del logo para modo oscuro */
-[data-theme="dark"] .header-logo,
-[data-theme="dark"] .profile-initials {
-  filter: invert(1);
-  mix-blend-mode: screen;
-}
-
 main {
   grid-area: main;
   min-width: 0;
