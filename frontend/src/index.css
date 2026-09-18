@@ -156,30 +156,6 @@ header {
   mix-blend-mode: screen;
 }
 
-/* --- INICIO: Estilos para el nuevo logo de texto en el header --- */
-.header-splash-text {
-  font-family: "Oleo Script", cursive;
-  font-size: 0.75rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 2px;
-  background: linear-gradient(45deg, #212529, #495057);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  text-shadow: 0px 2px 5px rgba(0, 0, 0, 0.1);
-}
-
-[data-theme="dark"] .header-splash-text {
-  background: linear-gradient(45deg, #e9ecef, #adb5bd);
-  -webkit-background-clip: text;
-  background-clip: text;
-}
-
-.header-splash-icon {
-  color: darkred;
-}
-
 main {
   grid-area: main;
   min-width: 0;
