@@ -4,6 +4,17 @@ import react from '@vitejs/plugin-react'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+  server: {
+    host: true,
+    port: 3000,
+    proxy: {
+      "/api": {
+        target: "http://localhost:5000",
+        changeOrigin: true,
+        secure: false,
+      },
+    },
+  },
   build: {
     // Vite 8 usa Rolldown como bundler. Su API nativa para dividir chunks es
     // `rolldownOptions.output.codeSplitting` con `groups`, que agrupa las
